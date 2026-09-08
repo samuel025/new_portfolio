@@ -179,49 +179,102 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 10px 16px;
+        padding: 8px 14px;
         border-bottom: 1px solid var(--border);
         background: #111218;
+        gap: 12px;
       }
 
       .anim-label {
         font-family: var(--font-mono);
-        font-size: 0.63rem;
+        font-size: 0.68rem;
         color: var(--muted);
-        letter-spacing: 0.05em;
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
         margin: 0;
+        white-space: nowrap;
+        flex-shrink: 0;
       }
 
       .anim-controls {
-        display: flex;
+        display: inline-flex;
         align-items: center;
         gap: 8px;
+        flex-shrink: 0;
+      }
+
+      /* Segmented pill switcher */
+      .anim-segmented {
+        display: inline-flex;
+        align-items: center;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 2px;
+        gap: 2px;
       }
 
       .anim-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
         background: transparent;
-        border: 1px solid rgba(255, 255, 255, 0.1);
+        border: 1px solid transparent;
         border-radius: 4px;
-        padding: 2px 8px;
+        padding: 0 10px;
+        height: 26px;
         font-family: var(--font-mono);
-        font-size: 0.63rem;
+        font-size: 0.68rem;
         color: var(--text-dim);
         cursor: pointer;
-        transition: all 160ms ease;
+        white-space: nowrap;
+        line-height: 1;
+        transition: color 150ms ease, background 150ms ease, border-color 150ms ease;
       }
 
       .anim-btn:hover {
         color: var(--text);
-        border-color: var(--accent);
-        background: var(--bg-card);
+        background: rgba(255, 255, 255, 0.06);
       }
 
       .anim-btn.active {
-        background: var(--accent-dim);
-        border-color: var(--accent);
+        background: var(--bg-card);
+        border-color: rgba(124, 106, 245, 0.4);
         color: var(--accent);
         font-weight: 500;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
       }
+
+      .anim-btn-tool {
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.02);
+        min-width: 64px;
+      }
+
+      .anim-btn-tool:hover {
+        border-color: var(--accent);
+        color: var(--text);
+      }
+
+      .anim-legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-family: var(--font-mono);
+        font-size: 0.68rem;
+        color: var(--text-dim);
+        white-space: nowrap;
+      }
+
+      .legend-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+
+      .legend-dot.purple { background: #a78bfa; box-shadow: 0 0 6px #7c6af5; }
+      .legend-dot.red { background: #f87171; box-shadow: 0 0 6px #ef4444; }
 
       .anim-canvas {
         display: block;
@@ -230,14 +283,33 @@
       }
 
       .anim-caption {
-        padding: 8px 16px;
+        padding: 8px 14px;
         background: #111218;
         border-top: 1px solid var(--border);
         font-family: var(--font-mono);
-        font-size: 0.65rem;
+        font-size: 0.68rem;
         color: var(--muted);
         display: flex;
         justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+      }
+
+      @media (max-width: 640px) {
+        .anim-header {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 10px;
+        }
+        .anim-controls {
+          width: 100%;
+          justify-content: space-between;
+        }
+        .anim-caption {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 4px;
+        }
       }
 
       /* ── Benchmark Table ── */
@@ -344,11 +416,13 @@
           <!-- Interactive Visualizer: 2PC vs DRMQ -->
           <div class="anim-block">
             <div class="anim-header">
-              <p class="anim-label">2pc coordinator vs drmq consensus</p>
+              <p class="anim-label">2PC vs DRMQ Consensus</p>
               <div class="anim-controls">
-                <button id="btn-mode-2pc" class="anim-btn active">2PC (Kafka / Pulsar)</button>
-                <button id="btn-mode-drmq" class="anim-btn">DRMQ (Unified Raft)</button>
-                <button id="btn-play-toggle" class="anim-btn">⏸ Pause</button>
+                <div class="anim-segmented">
+                  <button id="btn-mode-2pc" class="anim-btn active">2PC (Kafka)</button>
+                  <button id="btn-mode-drmq" class="anim-btn">DRMQ (Raft)</button>
+                </div>
+                <button id="btn-play-toggle" class="anim-btn anim-btn-tool">⏸ Pause</button>
               </div>
             </div>
             <canvas id="canvas-protocol" class="anim-canvas" width="692" height="340"></canvas>
@@ -428,10 +502,10 @@ producer.<span class="fn">sendAtomic</span>(topicMessages);</code></pre>
 
           <div class="anim-block">
             <div class="anim-header">
-              <p class="anim-label">benchmark: cross-topic commit latency distribution</p>
+              <p class="anim-label">Commit Latency Distribution</p>
               <div class="anim-controls">
-                <span style="font-family: var(--font-mono); font-size: 0.68rem; color: #a78bfa;">● DRMQ</span>
-                <span style="font-family: var(--font-mono); font-size: 0.68rem; color: #f87171; margin-left: 8px;">● Kafka (2PC)</span>
+                <span class="anim-legend-item"><span class="legend-dot purple"></span>DRMQ</span>
+                <span class="anim-legend-item"><span class="legend-dot red"></span>Kafka (2PC)</span>
               </div>
             </div>
             <canvas id="canvas-benchmark" class="anim-canvas" width="692" height="260"></canvas>
