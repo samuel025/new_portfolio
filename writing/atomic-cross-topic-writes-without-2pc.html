@@ -405,13 +405,13 @@
               </div>
               <h1 class="post-title">Atomic Cross-Topic Transactions<br/>Without Two-Phase Commit</h1>
               <p class="post-subtitle">
-                How we designed DRMQ — a distributed message queue that eliminates 2PC coordinators using single-group Raft consensus and leader aggregation to cut commit latency by 73%.
+                How we designed DRMQ — a distributed message queue that eliminates 2PC coordinators using single-group Raft consensus and leader aggregation to cut commit latency by 85.5%.
               </p>
             </header>
           </div>
 
           <div class="callout">
-            <p><strong>—</strong> Writing atomically across multiple message topics in Kafka or Pulsar requires Two-Phase Commit (2PC), coordinator state logs, and 4+ network round-trips. In <strong>DRMQ</strong>, we store multi-topic writes directly inside a unified Raft consensus stream as a single <code>ATOMIC_BATCH</code>. One quorum round commits the entire transaction across all topics — cutting p50 latency from 49ms → 13ms while scaling to 3,200+ TPS.</p>
+            <p><strong>—</strong> Writing atomically across multiple message topics in Kafka or Pulsar requires Two-Phase Commit (2PC), coordinator state logs, and 4+ network round-trips. In <strong>DRMQ</strong>, we store multi-topic writes directly inside a unified Raft consensus stream as a single <code>ATOMIC_BATCH</code>. One quorum round commits the entire transaction across all topics — cutting p50 latency from 55ms → 8ms while scaling to 4,878 TPS.</p>
           </div>
 
           <h2>The Problem: All-or-Nothing Writes in Message Queues</h2>
@@ -604,7 +604,7 @@ producer.<span class="fn">sendAtomic</span>(topicMessages);</code></pre>
             </div>
             <canvas id="canvas-benchmark" class="anim-canvas" width="692" height="260"></canvas>
             <div class="anim-caption">
-              <span>Tail Latency (p999): DRMQ 65ms vs Kafka 116ms</span>
+              <span>Tail Latency (p999): DRMQ 23ms vs Kafka 198ms</span>
               <span>Matched 3-Node Cluster · RF=3 · acks=all</span>
             </div>
           </div>
@@ -621,44 +621,44 @@ producer.<span class="fn">sendAtomic</span>(topicMessages);</code></pre>
             <tbody>
               <tr>
                 <td><strong>Commit Latency (p50)</strong></td>
-                <td class="bad">49 ms</td>
-                <td class="good">13 ms</td>
-                <td class="accent">73.5% faster</td>
+                <td class="bad">55 ms</td>
+                <td class="good">8 ms</td>
+                <td class="accent">85.5% faster</td>
               </tr>
               <tr>
                 <td><strong>Commit Latency (p95)</strong></td>
-                <td class="bad">77 ms</td>
-                <td class="good">23 ms</td>
-                <td class="accent">70.1% faster</td>
+                <td class="bad">93 ms</td>
+                <td class="good">11 ms</td>
+                <td class="accent">88.2% faster</td>
               </tr>
               <tr>
                 <td><strong>Commit Latency (p99)</strong></td>
-                <td class="bad">88 ms</td>
-                <td class="good">40 ms</td>
-                <td class="accent">54.5% faster</td>
+                <td class="bad">129 ms</td>
+                <td class="good">16 ms</td>
+                <td class="accent">87.6% faster</td>
               </tr>
               <tr>
                 <td><strong>Tail Latency (p999)</strong></td>
-                <td class="bad">116 ms</td>
-                <td class="good">65 ms</td>
-                <td class="accent">44.0% lower tail</td>
+                <td class="bad">198 ms</td>
+                <td class="good">23 ms</td>
+                <td class="accent">88.4% lower tail</td>
               </tr>
               <tr>
                 <td><strong>Serial Producer Throughput</strong></td>
-                <td class="bad">19 – 22 TPS</td>
-                <td class="good">68 – 80 TPS</td>
-                <td class="accent">~3.5× throughput</td>
+                <td class="bad">19 TPS</td>
+                <td class="good">127 TPS</td>
+                <td class="accent">~6.6× throughput</td>
               </tr>
               <tr>
-                <td><strong>20 Concurrent Producers</strong></td>
-                <td class="bad">253 TPS</td>
-                <td class="good">1,339 TPS</td>
-                <td class="accent">5.3× throughput</td>
+                <td><strong>10 Concurrent Producers</strong></td>
+                <td class="bad">181 TPS</td>
+                <td class="good">1,621 TPS</td>
+                <td class="accent">~8.9× throughput</td>
               </tr>
               <tr>
                 <td><strong>Client Batching (1MB Payload)</strong></td>
                 <td>—</td>
-                <td class="good">3,247 TPS</td>
+                <td class="good">4,878 TPS</td>
                 <td class="accent">High concurrency scale</td>
               </tr>
             </tbody>
