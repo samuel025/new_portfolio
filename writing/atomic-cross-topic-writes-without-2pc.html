@@ -284,15 +284,32 @@
 
       .anim-caption {
         padding: 8px 14px;
+        height: 52px;
+        min-height: 52px;
         background: #111218;
         border-top: 1px solid var(--border);
         font-family: var(--font-mono);
         font-size: 0.68rem;
+        line-height: 1.4;
         color: var(--muted);
         display: flex;
         justify-content: space-between;
         align-items: center;
-        gap: 12px;
+        gap: 16px;
+        box-sizing: border-box;
+      }
+
+      .anim-caption span:first-child {
+        flex: 1 1 auto;
+        min-width: 0;
+        line-height: 1.4;
+      }
+
+      .anim-caption span:last-child {
+        flex-shrink: 0;
+        white-space: nowrap;
+        text-align: right;
+        color: var(--text-dim);
       }
 
       @media (max-width: 640px) {
@@ -306,9 +323,18 @@
           justify-content: space-between;
         }
         .anim-caption {
+          height: auto;
+          min-height: 48px;
           flex-direction: column;
           align-items: flex-start;
+          justify-content: center;
           gap: 4px;
+        }
+        .anim-caption span:first-child {
+          white-space: normal;
+        }
+        .anim-caption span:last-child {
+          white-space: normal;
         }
       }
 
@@ -427,8 +453,8 @@
             </div>
             <canvas id="canvas-protocol" class="anim-canvas" width="692" height="340"></canvas>
             <div class="anim-caption">
-              <span id="protocol-step-desc">Step 1: Producer registers partitions with Transaction Coordinator...</span>
-              <span id="protocol-latency-counter">Est. Roundtrips: 4 · p50: ~49ms</span>
+              <span id="protocol-step-desc">1. Producer registers topics with Transaction Coordinator</span>
+              <span id="protocol-latency-counter">Roundtrip 1/4 · ~14ms</span>
             </div>
           </div>
 
@@ -767,26 +793,26 @@ producer.<span class="fn">sendAtomic</span>(topicMessages);</code></pre>
             let stage = 0;
             if (t < 0.25) {
               stage = 1;
-              stepDesc.textContent = '1. AddPartitionsToTxn: Producer registers topics with Transaction Coordinator...';
-              latencyCounter.textContent = 'Roundtrip 1/4 · Latency: ~14ms';
+              stepDesc.textContent = '1. Producer registers topics with Transaction Coordinator';
+              latencyCounter.textContent = 'Roundtrip 1/4 · ~14ms';
               const subT = t / 0.25;
               drawPacket(protoCtx, pX + 60, pY - 15, tcX - 60, tcY + 15, subT, 'register(orders, inv)', '#a78bfa');
             } else if (t < 0.5) {
               stage = 2;
-              stepDesc.textContent = '2. Producer writes messages to partition leaders; TC persists state to __transaction_state...';
-              latencyCounter.textContent = 'Roundtrip 2/4 · Latency: ~28ms';
+              stepDesc.textContent = '2. Producer writes to partitions; TC persists to __txn_state';
+              latencyCounter.textContent = 'Roundtrip 2/4 · ~28ms';
               const subT = (t - 0.25) / 0.25;
               drawPacket(protoCtx, pX + 60, pY, t1X - 60, t1Y, subT, 'produce(orders)', '#38bdf8');
               drawPacket(protoCtx, pX + 60, pY + 15, t2X - 60, t2Y, subT, 'produce(inventory)', '#38bdf8');
             } else if (t < 0.75) {
               stage = 3;
-              stepDesc.textContent = '3. Producer issues commitTransaction() to Coordinator...';
-              latencyCounter.textContent = 'Roundtrip 3/4 · Latency: ~41ms';
+              stepDesc.textContent = '3. Producer issues commitTransaction() to Coordinator to initiate 2PC';
+              latencyCounter.textContent = 'Roundtrip 3/4 · ~41ms';
               const subT = (t - 0.5) / 0.25;
               drawPacket(protoCtx, pX + 60, pY - 15, tcX - 60, tcY + 15, subT, 'commitTxn()', '#fbbf24');
             } else {
               stage = 4;
-              stepDesc.textContent = '4. 2PC Phase 2: Coordinator writes COMMIT markers to each partition log...';
+              stepDesc.textContent = '4. Coordinator writes COMMIT markers to partition logs';
               latencyCounter.textContent = 'Roundtrip 4/4 · Complete: ~49ms (p50)';
               const subT = (t - 0.75) / 0.25;
               drawPacket(protoCtx, tcX + 60, tcY + 10, t1X - 60, t1Y, subT, 'COMMIT marker', '#3ecf8e');
@@ -808,19 +834,19 @@ producer.<span class="fn">sendAtomic</span>(topicMessages);</code></pre>
             const t = animProgress;
 
             if (t < 0.45) {
-              stepDesc.textContent = '1. Producer sends sendAtomic(orders, inventory) in 1 wire frame to Raft Leader...';
-              latencyCounter.textContent = 'Roundtrip: In-Flight · Latency: ~5ms';
+              stepDesc.textContent = '1. Producer sends sendAtomic(orders, inv) to Raft Leader';
+              latencyCounter.textContent = 'Phase 1 · In-Flight · ~5ms';
               const subT = t / 0.45;
               drawPacket(protoCtx, pX + 60, pY, rLX - 60, rLY, subT, 'ATOMIC_BATCH(orders, inv)', '#38bdf8');
             } else if (t < 0.8) {
-              stepDesc.textContent = '2. Aggregator proposes ATOMIC_BATCH. Single Raft quorum round commits both topics simultaneously...';
-              latencyCounter.textContent = 'Quorum Majority Reached · Latency: ~11ms';
+              stepDesc.textContent = '2. Unified Raft quorum commits both topics simultaneously';
+              latencyCounter.textContent = 'Phase 2 · Quorum ACK · ~11ms';
               const subT = (t - 0.45) / 0.35;
               drawPacket(protoCtx, rLX + 60, rLY - 20, f1X - 60, f1Y, subT, 'Raft AppendEntries', '#a78bfa');
               drawPacket(protoCtx, rLX + 60, rLY + 20, f2X - 60, f2Y, subT, 'Raft AppendEntries', '#a78bfa');
             } else {
-              stepDesc.textContent = '3. Applied! Contiguous offsets committed across all topics without coordinators.';
-              latencyCounter.textContent = 'Complete in 1 Consensus Round · p50: 13ms (73.5% faster)';
+              stepDesc.textContent = '3. Applied: Contiguous offsets committed without 2PC';
+              latencyCounter.textContent = '1 Quorum Round · 13ms p50 (-73.5%)';
               const subT = (t - 0.8) / 0.2;
               drawPacket(protoCtx, rLX - 60, rLY, pX + 60, pY, subT, 'ACK (offsets: [104, 82])', '#3ecf8e');
             }
