@@ -186,9 +186,9 @@
 
       .anim-label {
         font-family: var(--font-mono);
-        font-size: 0.72rem;
+        font-size: 0.63rem;
         color: var(--muted);
-        letter-spacing: 0.04em;
+        letter-spacing: 0.05em;
         margin: 0;
       }
 
@@ -202,9 +202,9 @@
         background: transparent;
         border: 1px solid rgba(255, 255, 255, 0.1);
         border-radius: 4px;
-        padding: 3px 10px;
+        padding: 2px 8px;
         font-family: var(--font-mono);
-        font-size: 0.68rem;
+        font-size: 0.63rem;
         color: var(--text-dim);
         cursor: pointer;
         transition: all 160ms ease;
@@ -230,11 +230,11 @@
       }
 
       .anim-caption {
-        padding: 10px 16px;
+        padding: 8px 16px;
         background: #111218;
         border-top: 1px solid var(--border);
         font-family: var(--font-mono);
-        font-size: 0.7rem;
+        font-size: 0.65rem;
         color: var(--muted);
         display: flex;
         justify-content: space-between;
@@ -311,7 +311,7 @@
           </div>
 
           <div class="callout">
-            <p><strong>tl;dr —</strong> Writing atomically across multiple message topics in Kafka or Pulsar requires Two-Phase Commit (2PC), coordinator state logs, and 4+ network round-trips. In <strong>DRMQ</strong>, we store multi-topic writes directly inside a unified Raft consensus stream as a single <code>ATOMIC_BATCH</code>. One quorum round commits the entire transaction across all topics — cutting p50 latency from 49ms → 13ms while scaling to 3,200+ TPS.</p>
+            <p><strong>—</strong> Writing atomically across multiple message topics in Kafka or Pulsar requires Two-Phase Commit (2PC), coordinator state logs, and 4+ network round-trips. In <strong>DRMQ</strong>, we store multi-topic writes directly inside a unified Raft consensus stream as a single <code>ATOMIC_BATCH</code>. One quorum round commits the entire transaction across all topics — cutting p50 latency from 49ms → 13ms while scaling to 3,200+ TPS.</p>
           </div>
 
           <h2>The Problem: All-or-Nothing Writes in Message Queues</h2>
@@ -344,7 +344,7 @@
           <!-- Interactive Visualizer: 2PC vs DRMQ -->
           <div class="anim-block">
             <div class="anim-header">
-              <p class="anim-label">// interactive: 2pc coordinator vs drmq consensus</p>
+              <p class="anim-label">2pc coordinator vs drmq consensus</p>
               <div class="anim-controls">
                 <button id="btn-mode-2pc" class="anim-btn active">2PC (Kafka / Pulsar)</button>
                 <button id="btn-mode-drmq" class="anim-btn">DRMQ (Unified Raft)</button>
@@ -428,7 +428,7 @@ producer.<span class="fn">sendAtomic</span>(topicMessages);</code></pre>
 
           <div class="anim-block">
             <div class="anim-header">
-              <p class="anim-label">// benchmark: cross-topic commit latency distribution</p>
+              <p class="anim-label">benchmark: cross-topic commit latency distribution</p>
               <div class="anim-controls">
                 <span style="font-family: var(--font-mono); font-size: 0.68rem; color: #a78bfa;">● DRMQ</span>
                 <span style="font-family: var(--font-mono); font-size: 0.68rem; color: #f87171; margin-left: 8px;">● Kafka (2PC)</span>
