@@ -522,58 +522,6 @@ producer.<span class="fn">sendAtomic</span>(topicMessages);</code></pre>
             Because contiguous global offsets are reserved upfront and embedded directly into the Raft entry, every replica deterministically computes identical per-topic offsets when applying the committed log.
           </p>
 
-          <h2>Crash Safety: The Atomic-Intent Write-Ahead Log</h2>
-          <p>
-            Committing a decision in Raft guarantees that the cluster agreed on the transaction. But each individual broker still faces a local filesystem challenge: applying that decision requires persisting writes across multiple independent, append-only topic segment files (e.g., <code>orders/00000.log</code> and <code>inventory/00000.log</code>).
-          </p>
-          <p>
-            Modifying multiple files on a filesystem is <strong>not an atomic operation</strong>. If a server loses power halfway through writing to <code>orders</code> before it finishes <code>inventory</code>, the local broker storage would be left in an inconsistent, partially applied state upon reboot.
-          </p>
-          <p>
-            To make this step crash-safe without introducing a bloated, general-purpose transaction manager, DRMQ uses a lightweight <strong>Atomic-Intent Write-Ahead Log (<code>.atomic-intent</code>)</strong>:
-          </p>
-
-          <pre><code><span class="cm">// Algorithm 2: Atomic Apply and Local Crash Recovery</span>
-<span class="kw">procedure</span> <span class="fn">applyAtomicBatch</span>(entry) {
-    <span class="cm">// 1. Synchronously persist intent to disk before touching topic files</span>
-    <span class="fn">write</span>(<span class="str">".atomic-intent"</span>, entry.slices, entry.baseOffsets);
-    <span class="fn">fsync</span>(<span class="str">".atomic-intent"</span>);
-
-    <span class="cm">// 2. Acquire topic locks in sorted order to guarantee deadlock freedom</span>
-    topics = <span class="fn">sort</span>(<span class="fn">distinctTopics</span>(entry.slices));
-    <span class="kw">for</span> (topic <span class="kw">in</span> topics) { <span class="fn">acquire</span>(lock[topic]); }
-
-    <span class="cm">// 3. Append to independent append-only segment files</span>
-    <span class="kw">for</span> ((topic, messages) <span class="kw">in</span> entry.slices) {
-        seg = <span class="fn">activeSegment</span>(topic);
-        <span class="kw">if</span> (seg.<span class="fn">isFull</span>()) seg = <span class="fn">rollNewSegment</span>(topic);
-        seg.<span class="fn">append</span>(messages);
-        <span class="fn">updateIndexAndCache</span>(topic, messages);
-    }
-    <span class="kw">for</span> (topic <span class="kw">in</span> topics) { <span class="fn">release</span>(lock[topic]); }
-
-    <span class="cm">// 4. Once all per-topic files are durable, clear the intent file</span>
-    <span class="fn">delete</span>(<span class="str">".atomic-intent"</span>);
-}
-
-<span class="cm">// Crash recovery executed once on broker startup before serving traffic</span>
-<span class="kw">procedure</span> <span class="fn">recover</span>() {
-    <span class="kw">if</span> (!<span class="fn">exists</span>(<span class="str">".atomic-intent"</span>)) <span class="kw">return</span>;
-
-    <span class="cm">// Replay pending writes from the intent WAL</span>
-    intent = <span class="fn">read</span>(<span class="str">".atomic-intent"</span>);
-    <span class="kw">for</span> ((topic, messages) <span class="kw">in</span> intent.slices) {
-        head = <span class="fn">currentHeadOffset</span>(topic);
-        pending = { m <span class="kw">in</span> messages : m.offset &gt; head };
-        <span class="kw">if</span> (pending != empty) <span class="fn">appendToSegment</span>(topic, pending);
-    }
-    <span class="fn">delete</span>(<span class="str">".atomic-intent"</span>);
-}</code></pre>
-
-          <p>
-            Because offsets are pre-allocated deterministically during Raft entry creation, recovery is always an <strong>idempotent redo</strong> (never an undo). Any message whose offset was already written to disk before the crash is cleanly skipped. The broker finishes applying remaining messages to all topics before opening its port to traffic — guaranteeing that local broker failure never creates an inconsistent cross-topic view.
-          </p>
-
           <!-- Interactive Latency Distribution Benchmark Chart -->
           <h2>Benchmark Evaluation: DRMQ vs Apache Kafka</h2>
           <p>
