@@ -522,6 +522,72 @@ producer.<span class="fn">sendAtomic</span>(topicMessages);</code></pre>
             Because contiguous global offsets are reserved upfront and embedded directly into the Raft entry, every replica deterministically computes identical per-topic offsets when applying the committed log.
           </p>
 
+          <h2>Crash Safety: Post-Write Completion Markers</h2>
+          <p>
+            Committing a decision in Raft guarantees that the cluster reached consensus on the transaction. But each individual broker still faces a local filesystem challenge: applying that decision requires persisting writes across multiple independent, append-only topic segment files (e.g., <code>orders/00000.log</code> and <code>inventory/00000.log</code>).
+          </p>
+          <p>
+            Modifying multiple files on disk is <strong>not an atomic operation</strong>. If a broker loses power halfway through writing to <code>orders</code> before finishing <code>inventory</code>, its local storage would be left in an inconsistent, partially applied state upon reboot.
+          </p>
+          <p>
+            Instead of introducing the disk overhead of a redundant pre-write intent log, DRMQ recognizes that <strong>the committed Raft log entry itself is already the authoritative write-ahead log</strong>. To guarantee local crash consistency, DRMQ uses a lightweight <strong>post-write completion marker</strong>:
+          </p>
+
+          <pre><code><span class="cm">// Algorithm: Atomic Apply and Post-Write Marker Crash Recovery</span>
+<span class="kw">procedure</span> <span class="fn">applyAtomicBatch</span>(entry) {
+    <span class="cm">// 1. Deterministic lock ordering prevents deadlocks between threads</span>
+    topics = <span class="fn">sort</span>(<span class="fn">distinctTopics</span>(entry.slices));
+    <span class="kw">for</span> (topic <span class="kw">in</span> topics) { <span class="fn">acquire</span>(lock[topic]); }
+
+    <span class="kw">try</span> {
+        <span class="cm">// 2. Append to independent per-topic append-only segment files</span>
+        <span class="kw">for</span> ((topic, messages) <span class="kw">in</span> entry.slices) {
+            seg = <span class="fn">activeSegment</span>(topic);
+            <span class="kw">if</span> (seg.<span class="fn">isFull</span>()) seg = <span class="fn">rollNewSegment</span>(topic);
+            seg.<span class="fn">append</span>(messages, entry.raftIndex); <span class="cm">// tagged with raftIndex</span>
+            <span class="fn">indexMessage</span>(topic, messages);
+        }
+    } <span class="kw">finally</span> {
+        <span class="kw">for</span> (topic <span class="kw">in</span> topics) { <span class="fn">release</span>(lock[topic]); }
+    }
+
+    <span class="cm">// 3. Fsync empty completion marker to confirm all topics were written</span>
+    <span class="fn">write</span>(<span class="str">".atomic-done-"</span> + entry.raftIndex);
+    <span class="fn">fsync</span>(dataDirectory);
+
+    <span class="cm">// 4. Two-phase visibility: make offsets visible to consumers only now</span>
+    <span class="fn">advanceTopicHeadOffsets</span>(entry.slices);
+    <span class="fn">cleanupMarkers</span>(priorTo: entry.raftIndex);
+}
+
+<span class="cm">// Executed once on broker startup before serving client traffic</span>
+<span class="kw">procedure</span> <span class="fn">recover</span>() {
+    lastIndex = <span class="fn">readLastAppliedRaftIndex</span>();
+    <span class="kw">if</span> (lastIndex &lt; 0) <span class="kw">return</span>;
+
+    <span class="cm">// Marker present: all topic segments were durably persisted</span>
+    <span class="kw">if</span> (<span class="fn">exists</span>(<span class="str">".atomic-done-"</span> + lastIndex)) <span class="kw">return</span>;
+
+    <span class="cm">// Marker missing: crash occurred mid-apply. Truncate partial writes</span>
+    <span class="cm">// so the Raft state machine can deterministically re-apply the full batch.</span>
+    <span class="kw">for</span> (topic <span class="kw">in</span> <span class="fn">allTopics</span>()) {
+        <span class="fn">truncatePartialApply</span>(topic, atRaftIndex: lastIndex);
+    }
+    <span class="fn">decrementLastAppliedRaftIndex</span>();
+    <span class="fn">cleanupAllMarkers</span>();
+}</code></pre>
+
+          <p>
+            When a broker restarts, it inspects its last applied Raft index. If <code>.atomic-done-{lastIndex}</code> exists, the transaction completed cleanly. If the marker is missing, the broker knows an unclean shutdown interrupted an atomic write mid-flight. Rather than guessing or repairing in place, it truncates partial writes tagged with that Raft index from affected segments, decrements its applied index counter, and lets Raft's authoritative consensus log cleanly re-apply the full batch.
+          </p>
+          <p>
+            This design yields two major architectural advantages:
+          </p>
+          <ul>
+            <li><strong>Zero redundant write amplification</strong>: No secondary pre-write intent log is ever flushed before appending messages. The Raft log remains the single source of truth.</li>
+            <li><strong>Read isolation without coordination</strong>: Consumers only observe messages once the completion marker is flushed and head offsets advance — preventing clients from ever reading partial cross-topic transactions.</li>
+          </ul>
+
           <!-- Interactive Latency Distribution Benchmark Chart -->
           <h2>Benchmark Evaluation: DRMQ vs Apache Kafka</h2>
           <p>
