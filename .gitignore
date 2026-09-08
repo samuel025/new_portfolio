@@ -37,6 +37,7 @@ yarn-error.log*
 .temp/
 .cache/
 
-# Drafts & Binary Docs
+# Drafts & Research Papers
+Atomic Transaction Paper.docx
 *.docx
 *.odt
