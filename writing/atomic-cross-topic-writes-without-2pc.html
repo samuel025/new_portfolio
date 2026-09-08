@@ -1,0 +1,780 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Atomic Cross-Topic Transactions Without 2PC — Samuel</title>
+    <meta name="description" content="How we designed DRMQ: a distributed message queue that eliminates Two-Phase Commit coordinators using single-group Raft consensus to achieve 73% lower commit latency." />
+    <meta name="author" content="Samuel" />
+    <meta property="og:title" content="Atomic Cross-Topic Transactions in Distributed Queues Without 2PC" />
+    <meta property="og:description" content="How we designed DRMQ: a distributed message queue that eliminates Two-Phase Commit coordinators using single-group Raft consensus." />
+    <meta property="og:type" content="article" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;600&family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../style.css" />
+    <style>
+      /* ── Post-specific styles ── */
+      .post-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        color: var(--text-dim);
+        text-decoration: none;
+        margin-bottom: 48px;
+        transition: color 160ms ease;
+      }
+      .post-back:hover { color: var(--text); }
+      .post-back svg { width: 13px; height: 13px; }
+
+      .post-header { margin-bottom: 48px; }
+
+      .post-meta {
+        font-family: var(--font-mono);
+        font-size: 0.72rem;
+        color: var(--muted);
+        margin-bottom: 16px;
+        display: flex;
+        gap: 16px;
+      }
+
+      .post-title {
+        font-size: clamp(1.6rem, 5vw, 2.35rem);
+        font-weight: 600;
+        letter-spacing: -0.025em;
+        line-height: 1.18;
+        color: var(--text);
+        margin-bottom: 16px;
+      }
+
+      .post-subtitle {
+        font-size: 1rem;
+        color: var(--text-dim);
+        line-height: 1.7;
+        max-width: 620px;
+      }
+
+      /* ── Prose ── */
+      .prose {
+        max-width: 740px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      .prose h2 {
+        font-size: 1.15rem;
+        font-weight: 600;
+        color: var(--text);
+        letter-spacing: -0.01em;
+        margin: 48px 0 14px;
+        padding-top: 4px;
+      }
+
+      .prose h2::before {
+        content: '## ';
+        font-family: var(--font-mono);
+        color: var(--accent);
+        font-size: 0.85rem;
+        font-weight: 400;
+      }
+
+      .prose p {
+        font-size: 0.95rem;
+        color: var(--text-dim);
+        line-height: 1.8;
+        margin-bottom: 20px;
+      }
+
+      .prose strong {
+        color: var(--text);
+        font-weight: 500;
+      }
+
+      .prose a {
+        color: var(--accent);
+        text-decoration: underline;
+        text-decoration-color: rgba(124, 106, 245, 0.4);
+        text-underline-offset: 3px;
+        transition: text-decoration-color 160ms ease;
+      }
+      .prose a:hover { text-decoration-color: var(--accent); }
+
+      .prose ul {
+        margin: 0 0 20px 0;
+        padding-left: 0;
+        list-style: none;
+      }
+
+      .prose ul li {
+        font-size: 0.95rem;
+        color: var(--text-dim);
+        line-height: 1.8;
+        padding-left: 20px;
+        position: relative;
+        margin-bottom: 6px;
+      }
+
+      .prose ul li::before {
+        content: '→';
+        position: absolute;
+        left: 0;
+        color: var(--accent);
+        font-family: var(--font-mono);
+        font-size: 0.8rem;
+      }
+
+      .prose pre {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 20px 24px;
+        overflow-x: auto;
+        margin: 24px 0;
+        font-family: var(--font-mono);
+        font-size: 0.8rem;
+        line-height: 1.7;
+        color: var(--text-dim);
+      }
+
+      .prose pre .kw  { color: #7c6af5; }   /* keyword */
+      .prose pre .fn  { color: #3ecf8e; }   /* function / method */
+      .prose pre .str { color: #e8c97a; }   /* string */
+      .prose pre .cm  { color: #666; font-style: italic; } /* comment */
+      .prose pre .hi  { color: var(--text); font-weight: 500; } /* highlight */
+      .prose pre .typ { color: #38bdf8; }   /* type */
+
+      .callout {
+        border-left: 2px solid var(--accent);
+        background: var(--accent-dim);
+        border-radius: 0 6px 6px 0;
+        padding: 14px 20px;
+        margin: 28px 0;
+      }
+
+      .callout p {
+        font-family: var(--font-mono);
+        font-size: 0.82rem;
+        color: var(--text-dim);
+        margin: 0;
+        line-height: 1.6;
+      }
+
+      .callout strong { color: var(--accent); }
+
+      /* ── Interactive Visualizer Block ── */
+      .anim-block {
+        margin: 36px 0;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+        background: #0c0d10;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+      }
+
+      .anim-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 16px;
+        border-bottom: 1px solid var(--border);
+        background: #111218;
+      }
+
+      .anim-label {
+        font-family: var(--font-mono);
+        font-size: 0.72rem;
+        color: var(--muted);
+        letter-spacing: 0.04em;
+        margin: 0;
+      }
+
+      .anim-controls {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .anim-btn {
+        background: transparent;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 4px;
+        padding: 3px 10px;
+        font-family: var(--font-mono);
+        font-size: 0.68rem;
+        color: var(--text-dim);
+        cursor: pointer;
+        transition: all 160ms ease;
+      }
+
+      .anim-btn:hover {
+        color: var(--text);
+        border-color: var(--accent);
+        background: var(--bg-card);
+      }
+
+      .anim-btn.active {
+        background: var(--accent-dim);
+        border-color: var(--accent);
+        color: var(--accent);
+        font-weight: 500;
+      }
+
+      .anim-canvas {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+
+      .anim-caption {
+        padding: 10px 16px;
+        background: #111218;
+        border-top: 1px solid var(--border);
+        font-family: var(--font-mono);
+        font-size: 0.7rem;
+        color: var(--muted);
+        display: flex;
+        justify-content: space-between;
+      }
+
+      /* ── Benchmark Table ── */
+      .result-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-family: var(--font-mono);
+        font-size: 0.78rem;
+        margin: 24px 0;
+      }
+
+      .result-table th {
+        text-align: left;
+        color: var(--muted);
+        padding: 8px 14px 8px 0;
+        border-bottom: 1px solid var(--border);
+        font-weight: 400;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        font-size: 0.68rem;
+      }
+
+      .result-table td {
+        padding: 10px 14px 10px 0;
+        color: var(--text-dim);
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+      }
+
+      .result-table td.good { color: var(--green); font-weight: 500; }
+      .result-table td.bad  { color: #e05c5c; }
+      .result-table td.accent { color: var(--accent); font-weight: 500; }
+
+      .post-footer {
+        margin-top: 72px;
+        padding-top: 32px;
+        border-top: 1px solid var(--border);
+      }
+
+      .post-footer p {
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        color: var(--muted);
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="noise"></div>
+
+    <main id="main-content">
+      <article>
+        <div class="prose">
+          <div style="padding-top: 56px;">
+            <a href="../index.html" class="post-back">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+              Back
+            </a>
+
+            <header class="post-header">
+              <div class="post-meta">
+                <time datetime="2026-09-08">Sep 2026</time>
+                <span>9 min read</span>
+                <span>Distributed Systems · Consensus</span>
+              </div>
+              <h1 class="post-title">Atomic Cross-Topic Transactions<br/>Without Two-Phase Commit</h1>
+              <p class="post-subtitle">
+                How we designed DRMQ — a distributed message queue that eliminates 2PC coordinators using single-group Raft consensus and leader aggregation to cut commit latency by 73%.
+              </p>
+            </header>
+          </div>
+
+          <div class="callout">
+            <p><strong>tl;dr —</strong> Writing atomically across multiple message topics in Kafka or Pulsar requires Two-Phase Commit (2PC), coordinator state logs, and 4+ network round-trips. In <strong>DRMQ</strong>, we store multi-topic writes directly inside a unified Raft consensus stream as a single <code>ATOMIC_BATCH</code>. One quorum round commits the entire transaction across all topics — cutting p50 latency from 49ms → 13ms while scaling to 3,200+ TPS.</p>
+          </div>
+
+          <h2>The Problem: All-or-Nothing Writes in Message Queues</h2>
+          <p>
+            Consider an e-commerce checkout pipeline. When a customer places an order, your backend must publish an event to <code>orders</code> and simultaneously emit a reservation to <code>inventory</code>.
+          </p>
+          <p>
+            If the network drops mid-flight and <code>orders</code> receives its message but <code>inventory</code> fails, you get an orphaned order with no stock allocated. In single relational databases, an <code>ACID</code> transaction guarantees that either both writes persist or neither does.
+          </p>
+          <p>
+            In distributed message queues, however, topics and partitions are traditionally sharded across independent consensus groups. Achieving cross-topic atomicity has historically required one of distributed systems' most expensive protocols: <strong>Two-Phase Commit (2PC)</strong>.
+          </p>
+
+          <h2>The High Tax of Two-Phase Commit</h2>
+          <p>
+            In mature systems like Apache Kafka and Apache Pulsar, cross-partition atomicity relies on a dedicated <strong>Transaction Coordinator (TC)</strong>. When a transactional producer initiates writes across topics, the system performs a multi-step orchestration:
+          </p>
+
+          <ul>
+            <li><strong>Register Partitions:</strong> The producer calls <code>AddPartitionsToTxn</code> for each topic partition involved, incurring network round-trips before message bodies are even sent.</li>
+            <li><strong>Durable State Logging:</strong> The coordinator persists transaction phase transitions to a dedicated internal log (e.g., <code>__transaction_state</code>).</li>
+            <li><strong>Prepare & Commit Markers:</strong> Once the client issues <code>commitTransaction()</code>, the coordinator writes prepare markers, waits for replication, and writes commit control markers to each individual partition log.</li>
+            <li><strong>Consumer Isolation Delays:</strong> Consumers running with <code>isolation.level=read_committed</code> maintain a per-partition Last Stable Offset (LSO), buffering and stalling messages until all control markers are finalized.</li>
+          </ul>
+
+          <p>
+            While 2PC provides correctness across arbitrary partitions, it incurs a steep price in latency: multiple round trips, synchronous disk flushes to coordination topics, and complex coordinator failure handling.
+          </p>
+
+          <!-- Interactive Visualizer: 2PC vs DRMQ -->
+          <div class="anim-block">
+            <div class="anim-header">
+              <p class="anim-label">// interactive: 2pc coordinator vs drmq consensus</p>
+              <div class="anim-controls">
+                <button id="btn-mode-2pc" class="anim-btn active">2PC (Kafka / Pulsar)</button>
+                <button id="btn-mode-drmq" class="anim-btn">DRMQ (Unified Raft)</button>
+                <button id="btn-play-toggle" class="anim-btn">⏸ Pause</button>
+              </div>
+            </div>
+            <canvas id="canvas-protocol" class="anim-canvas" width="692" height="340"></canvas>
+            <div class="anim-caption">
+              <span id="protocol-step-desc">Step 1: Producer registers partitions with Transaction Coordinator...</span>
+              <span id="protocol-latency-counter">Est. Roundtrips: 4 · p50: ~49ms</span>
+            </div>
+          </div>
+
+          <h2>The Core Insight: Raft Already Commits Atomically</h2>
+          <p>
+            In 2014, Diego Ongaro and John Ousterhout introduced <strong>Raft</strong> — an understandable consensus algorithm for replicating a log across a cluster. When a Raft leader replicates a command to a majority of followers and receives positive ACKs, the entire log entry is committed.
+          </p>
+          <p>
+            Here is the key observation behind <strong>DRMQ</strong>:
+          </p>
+          <div class="callout">
+            <p><strong>Raft does not restrict what a log entry contains.</strong> If a cross-topic write is packaged as a single log command (<code>ATOMIC_BATCH</code>), Raft’s default quorum rule already provides an all-or-nothing commitment point. You do not need a two-phase commit coordinator.</p>
+          </div>
+
+          <p>
+            Instead of giving each topic its own separate Raft consensus group and using a coordinator to bridge them, DRMQ runs a <strong>unified Raft consensus log</strong> per cluster node. Multi-topic writes, single produces, and consumer group offset commits all pass through the same Raft log order:
+          </p>
+
+          <pre><code><span class="cm">// Client-side multi-topic produce API</span>
+<span class="typ">Map</span>&lt;<span class="typ">String</span>, <span class="typ">byte</span>[]&gt; topicMessages = <span class="kw">new</span> <span class="typ">HashMap</span>&lt;&gt;();
+topicMessages.<span class="fn">put</span>(<span class="str">"orders"</span>, orderEventBytes);
+topicMessages.<span class="fn">put</span>(<span class="str">"inventory"</span>, inventoryEventBytes);
+
+<span class="cm">// Single wire request containing all topic slices</span>
+producer.<span class="fn">sendAtomic</span>(topicMessages);</code></pre>
+
+          <p>
+            There is no transaction identifier, no <code>beginTransaction()</code> round-trip, and no partition registration. The wire request itself encodes the multi-topic transaction.
+          </p>
+
+          <h2>Leader-Side Cross-Request Aggregation</h2>
+          <p>
+            A naive implementation of single-group consensus would propose one Raft round for every client transaction, creating an immediate throughput bottleneck.
+          </p>
+          <p>
+            DRMQ solves this via <strong>Leader-Side Cross-Request Aggregation</strong>. The cluster leader runs a dedicated aggregator thread that continuously pulls waiting atomic requests from a bounded concurrent queue (with a configurable linger timeout) and merges them into a single contiguous Raft log entry:
+          </p>
+
+          <pre><code><span class="cm">// Algorithm: Leader-Side Cross-Request Aggregator</span>
+<span class="kw">while</span> (running) {
+    <span class="cm">// 1. Poll incoming atomic transactions with short linger timeout</span>
+    Request first = queue.<span class="fn">poll</span>(LINGER_MS);
+    <span class="kw">if</span> (first == <span class="kw">null</span>) <span class="kw">continue</span>;
+
+    List&lt;Request&gt; batch = queue.<span class="fn">drainTo</span>(MAX_DRAIN - 1);
+    batch.<span class="fn">add</span>(0, first);
+
+    <span class="cm">// 2. Merge per-topic slices & record client response index positions</span>
+    Map&lt;String, List&lt;Entry&gt;&gt; merged = <span class="kw">new</span> HashMap&lt;&gt;();
+    <span class="kw">for</span> (Request req : batch) {
+        <span class="fn">appendSlices</span>(merged, req);
+    }
+
+    <span class="cm">// 3. Pre-allocate contiguous monotonic global offsets</span>
+    <span class="typ">long</span> baseOffset = <span class="fn">reserveOffsets</span>(totalEntries);
+
+    <span class="cm">// 4. Propose ONE single Raft entry for dozens of client transactions</span>
+    RaftEntry entry = <span class="kw">new</span> <span class="fn">RaftEntry</span>(OpType.ATOMIC_BATCH, merged, baseOffset);
+    <span class="fn">proposeToRaft</span>(entry);
+}</code></pre>
+
+          <p>
+            Because contiguous global offsets are reserved upfront and embedded directly into the Raft entry, every replica deterministically computes identical per-topic offsets when applying the committed log.
+          </p>
+
+          <!-- Interactive Latency Distribution Benchmark Chart -->
+          <h2>Benchmark Evaluation: DRMQ vs Apache Kafka</h2>
+          <p>
+            To evaluate the architecture, we benchmarked DRMQ directly against Apache Kafka’s transactional producer under identical cluster conditions (3-node cluster, Replication Factor = 3, <code>acks=all</code> / Raft quorum).
+          </p>
+
+          <div class="anim-block">
+            <div class="anim-header">
+              <p class="anim-label">// benchmark: cross-topic commit latency distribution</p>
+              <div class="anim-controls">
+                <span style="font-family: var(--font-mono); font-size: 0.68rem; color: #a78bfa;">● DRMQ</span>
+                <span style="font-family: var(--font-mono); font-size: 0.68rem; color: #f87171; margin-left: 8px;">● Kafka (2PC)</span>
+              </div>
+            </div>
+            <canvas id="canvas-benchmark" class="anim-canvas" width="692" height="260"></canvas>
+            <div class="anim-caption">
+              <span>Tail Latency (p999): DRMQ 65ms vs Kafka 116ms</span>
+              <span>Matched 3-Node Cluster · RF=3 · acks=all</span>
+            </div>
+          </div>
+
+          <table class="result-table">
+            <thead>
+              <tr>
+                <th>Metric / Percentile</th>
+                <th>Apache Kafka (2PC)</th>
+                <th>DRMQ (Unified Raft)</th>
+                <th>Observed Improvement</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Commit Latency (p50)</strong></td>
+                <td class="bad">49 ms</td>
+                <td class="good">13 ms</td>
+                <td class="accent">73.5% faster</td>
+              </tr>
+              <tr>
+                <td><strong>Commit Latency (p95)</strong></td>
+                <td class="bad">77 ms</td>
+                <td class="good">23 ms</td>
+                <td class="accent">70.1% faster</td>
+              </tr>
+              <tr>
+                <td><strong>Commit Latency (p99)</strong></td>
+                <td class="bad">88 ms</td>
+                <td class="good">40 ms</td>
+                <td class="accent">54.5% faster</td>
+              </tr>
+              <tr>
+                <td><strong>Tail Latency (p999)</strong></td>
+                <td class="bad">116 ms</td>
+                <td class="good">65 ms</td>
+                <td class="accent">44.0% lower tail</td>
+              </tr>
+              <tr>
+                <td><strong>Serial Producer Throughput</strong></td>
+                <td class="bad">19 – 22 TPS</td>
+                <td class="good">68 – 80 TPS</td>
+                <td class="accent">~3.5× throughput</td>
+              </tr>
+              <tr>
+                <td><strong>20 Concurrent Producers</strong></td>
+                <td class="bad">253 TPS</td>
+                <td class="good">1,339 TPS</td>
+                <td class="accent">5.3× throughput</td>
+              </tr>
+              <tr>
+                <td><strong>Client Batching (1MB Payload)</strong></td>
+                <td>—</td>
+                <td class="good">3,247 TPS</td>
+                <td class="accent">High concurrency scale</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <h2>Engineering Tradeoffs & Limitations</h2>
+          <p>
+            No architectural decision in distributed systems comes without trade-offs. DRMQ is not intended as a universal drop-in replacement for Apache Kafka’s entire ecosystem. Rather, it explores an alternative optimization point:
+          </p>
+
+          <ul>
+            <li><strong>Single Leader Bottleneck:</strong> In DRMQ, all writes pass through a single Raft leader node. Kafka avoids this by distributing partition leadership across all brokers. For massive multi-terabyte non-transactional streaming, Kafka scales horizontally across more machines.</li>
+            <li><strong>No Application-Level Abort:</strong> In DRMQ, once an atomic batch passes acceptance checks and enters the Raft consensus pipeline, it commits upon majority replication. It does not currently support an interactive <code>abortTransaction()</code> halfway through.</li>
+            <li><strong>Visibility Synchronization:</strong> Message publication visibility across different topics in a batch occurs as the apply loop executes. In rare corner cases, a fast consumer could observe messages in Topic A a few microseconds before Topic B is marked visible.</li>
+          </ul>
+
+          <h2>Conclusion & Source Code</h2>
+          <p>
+            By rethinking where transaction coordination belongs, <strong>DRMQ</strong> demonstrates that cross-topic atomicity does not inevitably require the latency overhead of Two-Phase Commit coordinators. When multi-topic writes are embraced as first-class citizens in a unified Raft log, consensus and atomicity become one and the same.
+          </p>
+          <p>
+            The complete Java implementation, client SDK, and reproducible benchmark harness are open source:
+          </p>
+          <p>
+            → <a href="https://github.com/samuel025/DRMQ" target="_blank" rel="noopener noreferrer"><strong>github.com/samuel025/DRMQ</strong></a>
+          </p>
+
+          <div class="post-footer">
+            <p>Written by Olayemi Samuel · Sep 2026</p>
+          </div>
+        </div>
+      </article>
+    </main>
+
+    <!-- Interactive Canvas Visualizer Script -->
+    <script>
+      (function () {
+        'use strict';
+
+        // 1. Protocol Comparison Canvas
+        const protoCanvas = document.getElementById('canvas-protocol');
+        const protoCtx = protoCanvas.getContext('2d');
+        const btn2pc = document.getElementById('btn-mode-2pc');
+        const btnDrmq = document.getElementById('btn-mode-drmq');
+        const btnPlay = document.getElementById('btn-play-toggle');
+        const stepDesc = document.getElementById('protocol-step-desc');
+        const latencyCounter = document.getElementById('protocol-latency-counter');
+
+        let mode = '2pc'; // '2pc' | 'drmq'
+        let isPlaying = true;
+        let animProgress = 0; // 0 to 1
+        let dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+        function setupCanvas(canvas, ctx, w, h) {
+          canvas.width = w * dpr;
+          canvas.height = h * dpr;
+          ctx.scale(dpr, dpr);
+        }
+
+        setupCanvas(protoCanvas, protoCtx, 692, 340);
+
+        btn2pc.addEventListener('click', () => {
+          mode = '2pc';
+          btn2pc.classList.add('active');
+          btnDrmq.classList.remove('active');
+          animProgress = 0;
+        });
+
+        btnDrmq.addEventListener('click', () => {
+          mode = 'drmq';
+          btnDrmq.classList.add('active');
+          btn2pc.classList.remove('active');
+          animProgress = 0;
+        });
+
+        btnPlay.addEventListener('click', () => {
+          isPlaying = !isPlaying;
+          btnPlay.textContent = isPlaying ? '⏸ Pause' : '▶ Play';
+        });
+
+        function drawNode(ctx, x, y, label, sublabel, color, isActive) {
+          ctx.save();
+          const w = 120;
+          const h = 48;
+          ctx.fillStyle = isActive ? 'rgba(124, 106, 245, 0.18)' : '#15161c';
+          ctx.strokeStyle = isActive ? color : 'rgba(255, 255, 255, 0.12)';
+          ctx.lineWidth = isActive ? 1.8 : 1;
+          if (isActive) {
+            ctx.shadowColor = color;
+            ctx.shadowBlur = 10;
+          }
+
+          ctx.beginPath();
+          ctx.roundRect(x - w / 2, y - h / 2, w, h, 6);
+          ctx.fill();
+          ctx.stroke();
+
+          ctx.fillStyle = isActive ? '#ffffff' : '#a3a3a3';
+          ctx.font = '600 11px "Geist Mono", monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(label, x, y - 2);
+
+          ctx.fillStyle = isActive ? color : '#666';
+          ctx.font = '400 9px "Geist Mono", monospace';
+          ctx.fillText(sublabel, x, y + 12);
+          ctx.restore();
+        }
+
+        function drawPacket(ctx, x1, y1, x2, y2, t, label, color) {
+          const x = x1 + (x2 - x1) * t;
+          const y = y1 + (y2 - y1) * t;
+
+          ctx.save();
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.08)';
+          ctx.lineWidth = 1;
+          ctx.setLineDash([4, 4]);
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          ctx.fillStyle = color;
+          ctx.shadowColor = color;
+          ctx.shadowBlur = 8;
+          ctx.beginPath();
+          ctx.arc(x, y, 4, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.font = '500 8.5px "Geist Mono", monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(label, x, y - 8);
+          ctx.restore();
+        }
+
+        function renderProtocol() {
+          protoCtx.clearRect(0, 0, 692, 340);
+
+          if (mode === '2pc') {
+            // 2PC Animation: Producer, Txn Coordinator, Topic A, Topic B
+            const pX = 80, pY = 170;
+            const tcX = 260, tcY = 80;
+            const t1X = 540, t1Y = 100;
+            const t2X = 540, t2Y = 240;
+
+            const t = animProgress;
+
+            let stage = 0;
+            if (t < 0.25) {
+              stage = 1;
+              stepDesc.textContent = '1. AddPartitionsToTxn: Producer registers topics with Transaction Coordinator...';
+              latencyCounter.textContent = 'Roundtrip 1/4 · Latency: ~14ms';
+              const subT = t / 0.25;
+              drawPacket(protoCtx, pX + 60, pY - 15, tcX - 60, tcY + 15, subT, 'register(orders, inv)', '#a78bfa');
+            } else if (t < 0.5) {
+              stage = 2;
+              stepDesc.textContent = '2. Producer writes messages to partition leaders; TC persists state to __transaction_state...';
+              latencyCounter.textContent = 'Roundtrip 2/4 · Latency: ~28ms';
+              const subT = (t - 0.25) / 0.25;
+              drawPacket(protoCtx, pX + 60, pY, t1X - 60, t1Y, subT, 'produce(orders)', '#38bdf8');
+              drawPacket(protoCtx, pX + 60, pY + 15, t2X - 60, t2Y, subT, 'produce(inventory)', '#38bdf8');
+            } else if (t < 0.75) {
+              stage = 3;
+              stepDesc.textContent = '3. Producer issues commitTransaction() to Coordinator...';
+              latencyCounter.textContent = 'Roundtrip 3/4 · Latency: ~41ms';
+              const subT = (t - 0.5) / 0.25;
+              drawPacket(protoCtx, pX + 60, pY - 15, tcX - 60, tcY + 15, subT, 'commitTxn()', '#fbbf24');
+            } else {
+              stage = 4;
+              stepDesc.textContent = '4. 2PC Phase 2: Coordinator writes COMMIT markers to each partition log...';
+              latencyCounter.textContent = 'Roundtrip 4/4 · Complete: ~49ms (p50)';
+              const subT = (t - 0.75) / 0.25;
+              drawPacket(protoCtx, tcX + 60, tcY + 10, t1X - 60, t1Y, subT, 'COMMIT marker', '#3ecf8e');
+              drawPacket(protoCtx, tcX + 60, tcY + 25, t2X - 60, t2Y - 10, subT, 'COMMIT marker', '#3ecf8e');
+            }
+
+            drawNode(protoCtx, pX, pY, 'PRODUCER', 'Client App', '#7c6af5', true);
+            drawNode(protoCtx, tcX, tcY, 'TXN_COORD', '__txn_state log', '#fbbf24', stage === 1 || stage === 3 || stage === 4);
+            drawNode(protoCtx, t1X, t1Y, 'PARTITION A', 'Topic: orders', '#3ecf8e', stage === 2 || stage === 4);
+            drawNode(protoCtx, t2X, t2Y, 'PARTITION B', 'Topic: inventory', '#3ecf8e', stage === 2 || stage === 4);
+
+          } else {
+            // DRMQ Animation: Producer directly to Raft Leader -> Followers (single quorum round)
+            const pX = 80, pY = 170;
+            const rLX = 320, rLY = 170;
+            const f1X = 560, f1Y = 90;
+            const f2X = 560, f2Y = 250;
+
+            const t = animProgress;
+
+            if (t < 0.45) {
+              stepDesc.textContent = '1. Producer sends sendAtomic(orders, inventory) in 1 wire frame to Raft Leader...';
+              latencyCounter.textContent = 'Roundtrip: In-Flight · Latency: ~5ms';
+              const subT = t / 0.45;
+              drawPacket(protoCtx, pX + 60, pY, rLX - 60, rLY, subT, 'ATOMIC_BATCH(orders, inv)', '#38bdf8');
+            } else if (t < 0.8) {
+              stepDesc.textContent = '2. Aggregator proposes ATOMIC_BATCH. Single Raft quorum round commits both topics simultaneously...';
+              latencyCounter.textContent = 'Quorum Majority Reached · Latency: ~11ms';
+              const subT = (t - 0.45) / 0.35;
+              drawPacket(protoCtx, rLX + 60, rLY - 20, f1X - 60, f1Y, subT, 'Raft AppendEntries', '#a78bfa');
+              drawPacket(protoCtx, rLX + 60, rLY + 20, f2X - 60, f2Y, subT, 'Raft AppendEntries', '#a78bfa');
+            } else {
+              stepDesc.textContent = '3. Applied! Contiguous offsets committed across all topics without coordinators.';
+              latencyCounter.textContent = 'Complete in 1 Consensus Round · p50: 13ms (73.5% faster)';
+              const subT = (t - 0.8) / 0.2;
+              drawPacket(protoCtx, rLX - 60, rLY, pX + 60, pY, subT, 'ACK (offsets: [104, 82])', '#3ecf8e');
+            }
+
+            drawNode(protoCtx, pX, pY, 'PRODUCER', 'Atomic Client', '#7c6af5', true);
+            drawNode(protoCtx, rLX, rLY, 'RAFT LEADER', 'Aggregator Thread', '#3ecf8e', true);
+            drawNode(protoCtx, f1X, f1Y, 'RAFT REPLICA 1', 'Local Log Quorum', '#a78bfa', t >= 0.45);
+            drawNode(protoCtx, f2X, f2Y, 'RAFT REPLICA 2', 'Local Log Quorum', '#a78bfa', t >= 0.45);
+          }
+
+          if (isPlaying) {
+            animProgress = (animProgress + 0.0035) % 1;
+          }
+          requestAnimationFrame(renderProtocol);
+        }
+
+        renderProtocol();
+
+        // 2. Latency Distribution Benchmark Canvas
+        const benchCanvas = document.getElementById('canvas-benchmark');
+        const benchCtx = benchCanvas.getContext('2d');
+        setupCanvas(benchCanvas, benchCtx, 692, 260);
+
+        function renderBenchmark() {
+          benchCtx.clearRect(0, 0, 692, 260);
+
+          const metrics = [
+            { label: 'p50 Commit', drmq: 13, kafka: 49, unit: 'ms' },
+            { label: 'p95 Commit', drmq: 23, kafka: 77, unit: 'ms' },
+            { label: 'p99 Commit', drmq: 40, kafka: 88, unit: 'ms' },
+            { label: 'p999 (Tail)', drmq: 65, kafka: 116, unit: 'ms' },
+          ];
+
+          const startX = 110;
+          const maxVal = 130;
+          const barHeight = 14;
+          const gap = 48;
+
+          metrics.forEach((m, idx) => {
+            const y = 42 + idx * gap;
+
+            // Metric label
+            benchCtx.fillStyle = '#a3a3a3';
+            benchCtx.font = '500 11px "Geist Mono", monospace';
+            benchCtx.textAlign = 'right';
+            benchCtx.fillText(m.label, startX - 18, y + 14);
+
+            const maxBarWidth = 460;
+            const drmqW = (m.drmq / maxVal) * maxBarWidth;
+            const kafkaW = (m.kafka / maxVal) * maxBarWidth;
+
+            // DRMQ Bar (Purple)
+            benchCtx.fillStyle = 'rgba(124, 106, 245, 0.85)';
+            benchCtx.shadowBlur = 8;
+            benchCtx.shadowColor = '#7c6af5';
+            benchCtx.beginPath();
+            benchCtx.roundRect(startX, y, drmqW, barHeight, 3);
+            benchCtx.fill();
+
+            // Kafka Bar (Red/Orange)
+            benchCtx.fillStyle = 'rgba(239, 68, 68, 0.75)';
+            benchCtx.shadowColor = '#ef4444';
+            benchCtx.beginPath();
+            benchCtx.roundRect(startX, y + barHeight + 4, kafkaW, barHeight, 3);
+            benchCtx.fill();
+            benchCtx.shadowBlur = 0;
+
+            // Values
+            benchCtx.fillStyle = '#ffffff';
+            benchCtx.font = '600 10px "Geist Mono", monospace';
+            benchCtx.textAlign = 'left';
+            benchCtx.fillText(`${m.drmq} ms`, startX + drmqW + 8, y + 11);
+
+            benchCtx.fillStyle = '#fca5a5';
+            benchCtx.fillText(`${m.kafka} ms`, startX + kafkaW + 8, y + barHeight + 15);
+          });
+        }
+
+        renderBenchmark();
+      })();
+    </script>
+  </body>
+</html>
