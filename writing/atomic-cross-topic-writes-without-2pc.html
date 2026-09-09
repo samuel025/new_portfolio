@@ -677,7 +677,7 @@ producer.<span class="fn">sendAtomic</span>(topicMessages);</code></pre>
 
           <h2>Conclusion & Source Code</h2>
           <p>
-            By rethinking where transaction coordination belongs, <strong>DRMQ</strong> demonstrates that cross-topic atomicity does not inevitably require the latency overhead of Two-Phase Commit coordinators. When multi-topic writes are embraced as first-class citizens in a unified Raft log, consensus and atomicity become one and the same.
+            <strong>DRMQ</strong> shows that getting atomic writes across multiple topics doesn't have to mean paying the heavy latency cost of Two-Phase Commit. By putting multi-topic writes directly into a single unified Raft log, the standard consensus protocol just handles the atomicity for you.
           </p>
           <p>
             The complete Java implementation, client SDK, and reproducible benchmark harness are open source:
