@@ -829,7 +829,7 @@ producer.<span class="fn">sendAtomic</span>(topicMessages);</code></pre>
             } else {
               stage = 4;
               stepDesc.textContent = '4. Coordinator writes COMMIT markers to partition logs';
-              latencyCounter.textContent = 'Roundtrip 4/4 · Complete: ~49ms (p50)';
+              latencyCounter.textContent = 'Roundtrip 4/4 · Complete: ~55ms (p50)';
               const subT = (t - 0.75) / 0.25;
               drawPacket(protoCtx, tcX + 60, tcY + 10, t1X - 60, t1Y, subT, 'COMMIT marker', '#3ecf8e');
               drawPacket(protoCtx, tcX + 60, tcY + 25, t2X - 60, t2Y - 10, subT, 'COMMIT marker', '#3ecf8e');
@@ -862,7 +862,7 @@ producer.<span class="fn">sendAtomic</span>(topicMessages);</code></pre>
               drawPacket(protoCtx, rLX + 60, rLY + 20, f2X - 60, f2Y, subT, 'Raft AppendEntries', '#a78bfa');
             } else {
               stepDesc.textContent = '3. Applied: Contiguous offsets committed without 2PC';
-              latencyCounter.textContent = '1 Quorum Round · 13ms p50 (-73.5%)';
+              latencyCounter.textContent = '1 Quorum Round · 8ms p50 (-85.5%)';
               const subT = (t - 0.8) / 0.2;
               drawPacket(protoCtx, rLX - 60, rLY, pX + 60, pY, subT, 'ACK (offsets: [104, 82])', '#3ecf8e');
             }
@@ -890,14 +890,14 @@ producer.<span class="fn">sendAtomic</span>(topicMessages);</code></pre>
           benchCtx.clearRect(0, 0, 692, 260);
 
           const metrics = [
-            { label: 'p50 Commit', drmq: 13, kafka: 49, unit: 'ms' },
-            { label: 'p95 Commit', drmq: 23, kafka: 77, unit: 'ms' },
-            { label: 'p99 Commit', drmq: 40, kafka: 88, unit: 'ms' },
-            { label: 'p999 (Tail)', drmq: 65, kafka: 116, unit: 'ms' },
+            { label: 'p50 Commit', drmq: 8, kafka: 55, unit: 'ms' },
+            { label: 'p95 Commit', drmq: 11, kafka: 93, unit: 'ms' },
+            { label: 'p99 Commit', drmq: 16, kafka: 129, unit: 'ms' },
+            { label: 'p999 (Tail)', drmq: 23, kafka: 198, unit: 'ms' },
           ];
 
           const startX = 110;
-          const maxVal = 130;
+          const maxVal = 210;
           const barHeight = 14;
           const gap = 48;
 
