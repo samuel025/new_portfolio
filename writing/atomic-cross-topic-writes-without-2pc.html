@@ -530,7 +530,7 @@ producer.<span class="fn">sendAtomic</span>(topicMessages);</code></pre>
             Modifying multiple files on disk is <strong>not an atomic operation</strong>. If a broker loses power halfway through writing to <code>orders</code> before finishing <code>inventory</code>, its local storage would be left in an inconsistent, partially applied state upon reboot.
           </p>
           <p>
-            Instead of introducing the disk overhead of a redundant pre-write intent log, DRMQ recognizes that <strong>the committed Raft log entry itself is already the authoritative write-ahead log</strong>. To guarantee local crash consistency, DRMQ uses a lightweight <strong>post-write completion marker</strong>:
+            To solve this problem, an atomic intent file was initially introduced. When a cross-topic message has been persisted to the Raft log, before it is written to each topic's append-only segment, it is first written to the intent file. If there is a crash and the broker restarts, it checks the intent file to replay and complete any interrupted writes. However, this redundant pre-write log introduces unnecessary disk overhead. DRMQ recognizes that <strong>the committed Raft log entry itself is already the authoritative write-ahead log</strong>. To guarantee local crash consistency, DRMQ simply uses a lightweight <strong>post-write completion marker</strong>:
           </p>
 
           <pre><code><span class="cm">// Algorithm: Atomic Apply and Post-Write Marker Crash Recovery</span>
