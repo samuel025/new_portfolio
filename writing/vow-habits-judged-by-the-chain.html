@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Vow: Habits Judged by the Chain, Coached by Memory — Samuel</title>
+    <meta name="description" content="How I built Vow: a money-habit coach that verifies commitments from real Sui transactions through Tatum and uses Walrus Memory to choose better nudges." />
+    <meta name="author" content="Samuel" />
+    <meta property="og:title" content="Vow: Habits Judged by the Chain, Coached by Memory" />
+    <meta property="og:description" content="A money-habit coach where the chain decides if you kept your vow and Walrus Memory decides how to nudge you next." />
+    <meta property="og:type" content="article" />
+    <meta property="og:url" content="https://0xuell.online/writing/vow-habits-judged-by-the-chain" />
+    <link rel="canonical" href="https://0xuell.online/writing/vow-habits-judged-by-the-chain" />
+    <meta name="theme-color" content="#0a0a0a" />
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;600&family=Geist:wght@300;400;500;600&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="../style.css" />
+    <style>
+      /* ── Post-specific styles ── */
+      .post-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        color: var(--text-dim);
+        text-decoration: none;
+        margin-bottom: 48px;
+        transition: color 160ms ease;
+      }
+      .post-back:hover { color: var(--text); }
+      .post-back svg { width: 13px; height: 13px; }
+
+      .post-header { margin-bottom: 48px; }
+
+      .post-meta {
+        font-family: var(--font-mono);
+        font-size: 0.72rem;
+        color: var(--muted);
+        margin-bottom: 16px;
+        display: flex;
+        gap: 16px;
+      }
+
+      .post-title {
+        font-size: clamp(1.6rem, 5vw, 2.35rem);
+        font-weight: 600;
+        letter-spacing: -0.025em;
+        line-height: 1.18;
+        color: var(--text);
+        margin-bottom: 16px;
+      }
+
+      .post-subtitle {
+        font-size: 1rem;
+        color: var(--text-dim);
+        line-height: 1.7;
+        max-width: 620px;
+      }
+
+      /* ── Prose ── */
+      .prose {
+        max-width: 740px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+
+      .prose h2 {
+        font-size: 1.15rem;
+        font-weight: 600;
+        color: var(--text);
+        letter-spacing: -0.01em;
+        margin: 48px 0 14px;
+        padding-top: 4px;
+      }
+
+      .prose h2::before {
+        content: '## ';
+        font-family: var(--font-mono);
+        color: var(--accent);
+        font-size: 0.85rem;
+        font-weight: 400;
+      }
+
+      .prose p {
+        font-size: 0.95rem;
+        color: var(--text-dim);
+        line-height: 1.8;
+        margin-bottom: 20px;
+      }
+
+      .prose strong {
+        color: var(--text);
+        font-weight: 500;
+      }
+
+      .prose a {
+        color: var(--accent);
+        text-decoration: underline;
+        text-decoration-color: rgba(124, 106, 245, 0.4);
+        text-underline-offset: 3px;
+        transition: text-decoration-color 160ms ease;
+      }
+      .prose a:hover { text-decoration-color: var(--accent); }
+
+      .prose ul {
+        margin: 0 0 20px 0;
+        padding-left: 0;
+        list-style: none;
+      }
+
+      .prose ul li {
+        font-size: 0.95rem;
+        color: var(--text-dim);
+        line-height: 1.8;
+        padding-left: 20px;
+        position: relative;
+        margin-bottom: 6px;
+      }
+
+      .prose ul li::before {
+        content: '→';
+        position: absolute;
+        left: 0;
+        color: var(--accent);
+        font-family: var(--font-mono);
+        font-size: 0.8rem;
+      }
+
+      .prose pre {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 20px 24px;
+        overflow-x: auto;
+        margin: 24px 0;
+        font-family: var(--font-mono);
+        font-size: 0.8rem;
+        line-height: 1.7;
+        color: var(--text-dim);
+      }
+
+      .prose pre .kw  { color: #7c6af5; }   /* keyword */
+      .prose pre .fn  { color: #3ecf8e; }   /* function / method */
+      .prose pre .str { color: #e8c97a; }   /* string */
+      .prose pre .cm  { color: #666; font-style: italic; } /* comment */
+      .prose pre .hi  { color: var(--text); font-weight: 500; } /* highlight */
+      .prose pre .typ { color: #38bdf8; }   /* type */
+
+      .callout {
+        border-left: 2px solid var(--accent);
+        background: var(--accent-dim);
+        border-radius: 0 6px 6px 0;
+        padding: 14px 20px;
+        margin: 28px 0;
+      }
+
+      .callout p {
+        font-family: var(--font-mono);
+        font-size: 0.82rem;
+        color: var(--text-dim);
+        margin: 0;
+        line-height: 1.6;
+      }
+
+      .callout strong { color: var(--accent); }
+
+      /* ── Interactive Visualizer Block ── */
+      .anim-block {
+        margin: 36px 0;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        overflow: hidden;
+        background: #0c0d10;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
+      }
+
+      .anim-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 14px;
+        border-bottom: 1px solid var(--border);
+        background: #111218;
+        gap: 12px;
+      }
+
+      .anim-label {
+        font-family: var(--font-mono);
+        font-size: 0.68rem;
+        color: var(--muted);
+        letter-spacing: 0.04em;
+        text-transform: uppercase;
+        margin: 0;
+        white-space: nowrap;
+        flex-shrink: 0;
+      }
+
+      .anim-controls {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+
+      /* Segmented pill switcher */
+      .anim-segmented {
+        display: inline-flex;
+        align-items: center;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 2px;
+        gap: 2px;
+      }
+
+      .anim-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        padding: 0 10px;
+        height: 26px;
+        font-family: var(--font-mono);
+        font-size: 0.68rem;
+        color: var(--text-dim);
+        cursor: pointer;
+        white-space: nowrap;
+        line-height: 1;
+        transition: color 150ms ease, background 150ms ease, border-color 150ms ease;
+      }
+
+      .anim-btn:hover {
+        color: var(--text);
+        background: rgba(255, 255, 255, 0.06);
+      }
+
+      .anim-btn.active {
+        background: var(--bg-card);
+        border-color: rgba(124, 106, 245, 0.4);
+        color: var(--accent);
+        font-weight: 500;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+      }
+
+      .anim-btn-tool {
+        border: 1px solid var(--border);
+        background: rgba(255, 255, 255, 0.02);
+        min-width: 64px;
+      }
+
+      .anim-btn-tool:hover {
+        border-color: var(--accent);
+        color: var(--text);
+      }
+
+      .anim-legend-item {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-family: var(--font-mono);
+        font-size: 0.68rem;
+        color: var(--text-dim);
+        white-space: nowrap;
+      }
+
+      .legend-dot {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        display: inline-block;
+      }
+
+      .legend-dot.purple { background: #a78bfa; box-shadow: 0 0 6px #7c6af5; }
+      .legend-dot.red { background: #f87171; box-shadow: 0 0 6px #ef4444; }
+
+      .anim-canvas {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+
+      .anim-caption {
+        padding: 8px 14px;
+        height: 52px;
+        min-height: 52px;
+        background: #111218;
+        border-top: 1px solid var(--border);
+        font-family: var(--font-mono);
+        font-size: 0.68rem;
+        line-height: 1.4;
+        color: var(--muted);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        box-sizing: border-box;
+      }
+
+      .anim-caption span:first-child {
+        flex: 1 1 auto;
+        min-width: 0;
+        line-height: 1.4;
+      }
+
+      .anim-caption span:last-child {
+        flex-shrink: 0;
+        white-space: nowrap;
+        text-align: right;
+        color: var(--text-dim);
+      }
+
+      @media (max-width: 640px) {
+        .anim-header {
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 10px;
+        }
+        .anim-controls {
+          width: 100%;
+          justify-content: space-between;
+        }
+        .anim-caption {
+          height: auto;
+          min-height: 48px;
+          flex-direction: column;
+          align-items: flex-start;
+          justify-content: center;
+          gap: 4px;
+        }
+        .anim-caption span:first-child {
+          white-space: normal;
+        }
+        .anim-caption span:last-child {
+          white-space: normal;
+        }
+      }
+
+      /* ── Benchmark Table ── */
+      .result-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-family: var(--font-mono);
+        font-size: 0.78rem;
+        margin: 24px 0;
+      }
+
+      .result-table th {
+        text-align: left;
+        color: var(--muted);
+        padding: 8px 14px 8px 0;
+        border-bottom: 1px solid var(--border);
+        font-weight: 400;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        font-size: 0.68rem;
+      }
+
+      .result-table td {
+        padding: 10px 14px 10px 0;
+        color: var(--text-dim);
+        border-bottom: 1px solid var(--border);
+        vertical-align: top;
+      }
+
+      .result-table td.good { color: var(--green); font-weight: 500; }
+      .result-table td.bad  { color: #e05c5c; }
+      .result-table td.accent { color: var(--accent); font-weight: 500; }
+
+      .post-footer {
+        margin-top: 72px;
+        padding-top: 32px;
+        border-top: 1px solid var(--border);
+      }
+
+      .post-footer p {
+        font-family: var(--font-mono);
+        font-size: 0.75rem;
+        color: var(--muted);
+        margin: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="noise"></div>
+
+    <main id="main-content">
+      <article>
+        <div class="prose">
+          <div style="padding-top: 56px;">
+            <a href="../index.html" class="post-back">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+              Back
+            </a>
+
+            <header class="post-header">
+              <div class="post-meta">
+                <time datetime="2026-11-10">Nov 2026</time>
+                <span>7 min read</span>
+                <span>Sui · Walrus · AI Agents</span>
+              </div>
+              <h1 class="post-title">Vow: Money Habits Judged<br/>by the Chain, Coached by Memory</h1>
+              <p class="post-subtitle">
+                How I built an agent that reads real Sui transactions through Tatum to decide whether you kept a commitment, then remembers every outcome in Walrus Memory and uses that history to pick the next nudge.
+              </p>
+            </header>
+          </div>
+
+          <div class="callout">
+            <p><strong>—</strong> Habit apps run on honesty: you tick a box and the app believes you. For money habits the evidence is already public. <strong>Vow</strong> reads your wallet's real Sui mainnet transactions to decide <strong>kept</strong>, <strong>missed</strong> or <strong>unverified</strong>, stores each outcome in <strong>Walrus Memory</strong>, and lets that memory change how it nudges you. It never holds or moves your funds.</p>
+          </div>
+
+          <h2>The Problem: Habit Apps Run on Honesty</h2>
+          <p>
+            Most habit trackers are a checkbox with a streak counter on top. The streak is only as truthful as your worst day, and apps that put money behind a habit have the same weakness, because the check-in is still something you report about yourself.
+          </p>
+          <p>
+            Money habits are different. If your vow is <em>"send at least 5 SUI to my savings address every Friday"</em>, the answer is sitting on a public chain. Nobody needs to ask you. Vow was built around that idea: <strong>the chain is the judge, and memory shapes the nudge.</strong>
+          </p>
+
+          <h2>How Vow Works</h2>
+          <p>
+            The loop has four stages, and only the last one uses anything like intelligence:
+          </p>
+          <ul>
+            <li><strong>Watch:</strong> fetch the wallet's recent sent transactions (balance changes and Move calls) from Tatum's Sui gateway.</li>
+            <li><strong>Verify:</strong> a deterministic verifier compares them to the vow's rule and the week's window and returns <code>kept</code>, <code>missed</code> or <code>unverified</code>, with the reason in plain English and the qualifying transaction digests.</li>
+            <li><strong>Remember:</strong> write one compact record per window to Walrus Memory: habit, weekday, result, and the nudge that came before it.</li>
+            <li><strong>Nudge:</strong> before the next window, recall that history and pick the reminder style and tone that actually worked for this person.</li>
+          </ul>
+          <p>
+            Vow supports four habit types: recurring save, spend cap, quiet hours and recurring stake. If the chain can't be reached, the window is marked <code>unverified</code>. It is never silently counted as a miss.
+          </p>
+
+          <h2>What Tatum, Sui and Walrus Each Do</h2>
+          <ul>
+            <li><strong>Tatum is the eyes.</strong> Every verdict starts with a call to the Sui mainnet GraphQL gateway, authenticated with an <code>x-api-key</code>. Tatum is the only source of chain truth in the app.</li>
+            <li><strong>Sui is the ledger and the identity.</strong> The vows are about real SUI and USDC transfers and staking calls. Wallet sign-in uses the Sui Wallet Standard: you sign one off-chain message, no transaction and no gas, and the server verifies it (zkLogin accounts included). Walrus Memory is anchored to a <code>MemWalAccount</code> object on Sui.</li>
+            <li><strong>Walrus Memory is the brain.</strong> Records are written with <code>remember</code>, brought back with <code>recall</code> before every nudge, and listed with <code>listMemories</code> on a Proof page that shows each blob's storage end epoch.</li>
+          </ul>
+
+          <pre><code><span class="cm">// What the watcher asks Tatum for (simplified)</span>
+<span class="kw">query</span>(<span class="typ">$a</span>: SuiAddress!, <span class="typ">$c</span>: UInt53) {
+  <span class="fn">transactions</span>(<span class="kw">last</span>: 50, <span class="kw">filter</span>: { sentAddress: <span class="typ">$a</span>, afterCheckpoint: <span class="typ">$c</span> }) {
+    nodes {
+      digest
+      effects { status timestamp balanceChanges { nodes { owner coinType amount } } }
+      kind { ... <span class="kw">on</span> ProgrammableTransaction { commands { nodes { ... <span class="kw">on</span> MoveCallCommand { function { name } } } } } }
+    }
+  }
+}</code></pre>
+
+          <h2>Memory That Changes What the Agent Does</h2>
+          <p>
+            Storing history isn't the interesting part. Using it is. Each record keeps the nudge sent <em>before</em> its window, so the record's result is that nudge's outcome. When the next window comes around, the nudge engine scores each style and tone by how often a kept window followed it, tries untested ones first, and, when most of your misses land on one weekday, proposes moving the day.
+          </p>
+          <p>
+            A "Why this nudge?" panel shows the records behind every choice and says whether the choice was <strong>learned from your history</strong> or is just <strong>exploring</strong> because there isn't enough data yet. That distinction matters, because it keeps the agent from claiming a pattern it hasn't earned.
+          </p>
+
+          <div class="callout">
+            <p><strong>—</strong> The same recalled records power the coach's answers, the ghost race (your latest windows against the ones before them) and the streak and freeze logic. Remove Walrus and the agent has only a local file on one machine, with nothing durable, portable or publicly provable.</p>
+          </div>
+
+          <h2>The Verifier Never Uses an LLM</h2>
+          <p>
+            This was a deliberate line. A language model does two small jobs in Vow: it phrases coach answers from the memory records you hand it (with <code>[n]</code> citations resolved back to real records), and it drafts a vow from a sentence like <em>"save 20 USDC to 0x… every Thursday"</em>, which you review before anything is saved. It never decides a result. Kept, missed, streaks, XP and nudge choice are all plain code over chain data and memory, so a verdict can be checked by anyone with a block explorer.
+          </p>
+
+          <h2>What I Actually Verified</h2>
+          <table class="result-table">
+            <thead>
+              <tr>
+                <th>Claim</th>
+                <th>Evidence</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>Real chain verdicts</strong></td>
+                <td>A quiet-hours vow was judged missed for a day with three real mainnet transactions, and the verdict listed their digests</td>
+                <td class="good">Verified</td>
+              </tr>
+              <tr>
+                <td><strong>Walrus writes are live</strong></td>
+                <td>Records appear as real blobs with storage end epochs on the Proof page</td>
+                <td class="good">Verified</td>
+              </tr>
+              <tr>
+                <td><strong>Memory beats a fixed reminder</strong></td>
+                <td>64.0% vs 55.0% kept rate, 200 simulated users over 12 weeks</td>
+                <td class="bad">Simulation only</td>
+              </tr>
+            </tbody>
+          </table>
+          <p>
+            The benchmark deserves a warning label. The simulated users have hidden response rates I chose, so the result shows that the nudge logic can learn a pattern when one exists. It says nothing about real behaviour change, and the app labels any simulated history as such.
+          </p>
+
+          <h2>Problems I Ran Into</h2>
+          <ul>
+            <li><strong>Tatum's Sui endpoint is GraphQL, not JSON-RPC.</strong> The root path returned 404 for RPC calls. I moved to the GraphQL gateway, learned its retention window from the "lowest available checkpoint is N" error, and retried with <code>afterCheckpoint</code>.</li>
+            <li><strong>Walrus writes take seconds.</strong> Blocking on them made the UI feel broken. Records now go to a local mirror instantly and to Walrus in a background job, with cached recalls and a timeout.</li>
+            <li><strong>Failed transactions looked like evidence.</strong> A failed staking call would have counted as kept until I filtered on each transaction's on-chain status.</li>
+            <li><strong>Units.</strong> SUI is 1e9 and USDC is 1e6. Get that wrong and every save looks missed.</li>
+          </ul>
+
+          <h2>Limits &amp; Tradeoffs</h2>
+          <ul>
+            <li><strong>Only one wallet is visible.</strong> A spend cap can't see other wallets, exchanges, cards or cash, so "kept" means this wallet stayed within the rule, not that you spent less overall.</li>
+            <li><strong>Walrus namespaces are public.</strong> Memory records hold habit names, results and styles, never amounts, tokens or addresses, and the app tells users to keep names generic. Records expire at their end epoch.</li>
+            <li><strong>Short history.</strong> Tatum serves recent Sui history only, so Vow records what it sees as it goes.</li>
+            <li><strong>Demo scale.</strong> Data lives in local JSON files and all wallets share one delegate key and namespace. That is fine for a hackathon and wrong for production.</li>
+          </ul>
+
+          <h2>Conclusion &amp; Source Code</h2>
+          <p>
+            <strong>Vow</strong> shows that a habit agent doesn't have to trust the user or the model. The chain establishes what happened, and memory informs what to do next. Tatum, Sui and Walrus each carry a job the app can't do without.
+          </p>
+          <p>
+            It was built for the Tatum × Walrus Total Recall hackathon (Track 2, Smart Agents for Real Life). The code is open source:
+          </p>
+          <p>
+            → <a href="https://github.com/samuel025/vow" target="_blank" rel="noopener noreferrer"><strong>github.com/samuel025/vow</strong></a>
+          </p>
+          <!-- TODO: add the demo video link here once it is uploaded:
+          <p>→ <a href="VIDEO_URL" target="_blank" rel="noopener noreferrer"><strong>Watch the demo</strong></a></p> -->
+
+          <div class="post-footer">
+            <p>Written by Olayemi Samuel · Nov 2026</p>
+          </div>
+        </div>
+      </article>
+    </main>
+  </body>
+</html>
