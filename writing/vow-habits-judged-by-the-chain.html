@@ -466,6 +466,19 @@
             <p><strong>—</strong> The same recalled records power the coach's answers, the ghost race (your latest windows against the ones before them) and the streak and freeze logic. Remove Walrus and the agent has only a local file on one machine, with nothing durable, portable or publicly provable.</p>
           </div>
 
+          <h2>How It Learned Over Time</h2>
+          <p>
+            The nudge engine doesn't start smart. It moves through three stages as Walrus records accumulate:
+          </p>
+          <ul>
+            <li><strong>Exploring:</strong> with fewer than three observed outcomes for a nudge style, it tries the untested one and says so in the panel.</li>
+            <li><strong>Ranking:</strong> once styles have enough history, it picks the one most often followed by a kept window. In the demo's eight-week history, for example, the panel reads <code>reminder was followed by a kept window 80% of the time (56 cases)</code>, with the matching records listed.</li>
+            <li><strong>Rescheduling:</strong> when most of your misses land on the same weekday, it stops changing the wording and proposes moving the window instead.</li>
+          </ul>
+          <p>
+            Here is the honest limit. Real history is still short: one verified mainnet week plus my own test runs, all written to Walrus (31 blobs in the namespace at the time of writing). The deeper learning in the demo runs on a clearly labelled <strong>simulated</strong> eight-week history that lives in the local mirror and is merged with Walrus records at recall time. It runs the same code path, but it is not evidence that nudging changes real behaviour. Months of real wallets would be.
+          </p>
+
           <h2>The Verifier Never Uses an LLM</h2>
           <p>
             This was a deliberate line. A language model does two small jobs in Vow: it phrases coach answers from the memory records you hand it (with <code>[n]</code> citations resolved back to real records), and it drafts a vow from a sentence like <em>"save 20 USDC to 0x… every Thursday"</em>, which you review before anything is saved. It never decides a result. Kept, missed, streaks, XP and nudge choice are all plain code over chain data and memory, so a verdict can be checked by anyone with a block explorer.
