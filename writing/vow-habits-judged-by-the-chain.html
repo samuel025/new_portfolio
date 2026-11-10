@@ -526,9 +526,8 @@
           <h2>Limits &amp; Tradeoffs</h2>
           <ul>
             <li><strong>Only one wallet is visible.</strong> A spend cap can't see other wallets, exchanges, cards or cash, so "kept" means this wallet stayed within the rule, not that you spent less overall.</li>
-            <li><strong>Walrus namespaces are public.</strong> Memory records hold habit names, results and styles, never amounts, tokens or addresses, and the app tells users to keep names generic. Records expire at their end epoch.</li>
+            <li><strong>Walrus namespaces are public.</strong> Memory records hold habit names, results and styles, never amounts, tokens or addresses, and the app tells users to keep names generic. All wallets write through one shared delegate key into one namespace, and records expire at their end epoch.</li>
             <li><strong>Short history.</strong> Tatum serves recent Sui history only, so Vow records what it sees as it goes.</li>
-            <li><strong>Demo scale.</strong> Data lives in local JSON files and all wallets share one delegate key and namespace. That is fine for a hackathon and wrong for production.</li>
           </ul>
 
           <h2>Conclusion &amp; Source Code</h2>
